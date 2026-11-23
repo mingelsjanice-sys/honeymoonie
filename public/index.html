@@ -41,7 +41,24 @@ function build(){const days=+$('days').value||14;const style=$('style').value;le
 $('build').onclick=build;
 $('opt').onclick=()=>{if(stops.length<3){$('status').textContent='Voeg eerst minstens 3 stops toe.';return}const remaining=stops.slice(1),ordered=[stops[0]];while(remaining.length){const last=places[ordered.at(-1)];let bi=0,bd=Infinity;remaining.forEach((name,i)=>{const p=places[name],d=Math.hypot(p.lat-last.lat,p.lng-last.lng);if(d<bd){bd=d;bi=i}});ordered.push(remaining.splice(bi,1)[0]);}stops=ordered;renderStops();renderPlan();$('status').textContent='Route opnieuw geordend op een logischere volgorde.'};
 function parseLocalDate(value){if(!value)return new Date();const [y,m,d]=value.split('-').map(Number);return new Date(y,m-1,d,12,0,0)}
-function renderPlan(){const start=parseLocalDate($('start').value),days=+$('days').value||14;let day=1,html='';stops.forEach((s,i)=>{const n=places[s].nights;for(let j=0;j<n&&day<=days;j++){const d=new Date(start);d.setDate(start.getDate()+day-1);const weekday=d.toLocaleDateString('nl-NL',{weekday:'long'});const date=d.toLocaleDateString('nl-NL',{day:'numeric',month:'long'});const text=j===0?'Aankomst + rustig inchecken':j===n-1?'Laatste avond + romantisch diner':j%2?'Vrije honeymoon-dag / omgeving ontdekken':'Hoogtepunt van de regio + leuke lunch';html+=`<div class="day"><b>Dag ${day} · ${weekday} ${date} — ${places[s].label}</b><span class="muted">${text}</span></div>`;day++}}$('daysPlan').innerHTML=html||'<div class="empty">Plan verschijnt hier.</div>'}
+function renderPlan(){
+const start=parseLocalDate($('start').value);
+const days=+$('days').value||14;
+let day=1,html='';
+stops.forEach((s,i)=>{
+const n=places[s].nights;
+for(let j=0;j<n&&day<=days;j++){
+const d=new Date(start);
+d.setDate(start.getDate()+day-1);
+const weekday=d.toLocaleDateString('nl-NL',{weekday:'long'});
+const date=d.toLocaleDateString('nl-NL',{day:'numeric',month:'long'});
+const text=j===0?'Aankomst + rustig inchecken':j===n-1?'Laatste avond + romantisch diner':j%2?'Vrije honeymoon-dag / omgeving ontdekken':'Hoogtepunt van de regio + leuke lunch';
+html+=`<div class="day"><b>Dag ${day} · ${weekday} ${date} — ${places[s].label}</b><span class="muted">${text}</span></div>`;
+day++;
+}
+});
+$('daysPlan').innerHTML=html||'<div class="empty">Plan verschijnt hier.</div>';
+}
 async function searchHotels(){const dest=$('dest').value,checkin=$('start').value;const nights=stops.find(s=>s===dest.split(',')[0])?places[dest.split(',')[0]].nights:3;if(!checkin){$('hotelstatus').textContent='Kies eerst een startdatum.';return}const d=new Date(checkin);d.setDate(d.getDate()+nights);const checkout=d.toISOString().slice(0,10);$('hotelstatus').textContent='Live accommodaties en prijzen ophalen…';$('hotels').innerHTML='';try{const q=new URLSearchParams({destination:dest,checkin,checkout,adults:$('adults').value||2,sort:$('sort').value});const r=await fetch('/api/accommodations?'+q);const data=await r.json();if(!r.ok)throw new Error(data.error||'Onbekende fout');if(!data.hotels.length){$('hotels').innerHTML='<div class="empty">Geen accommodaties gevonden. Probeer een andere regio.</div>';return}$('hotelstatus').textContent=`${data.total} resultaten • ${data.nights} nachten • prijzen inclusief belastingen waar beschikbaar.`;renderHotels(data.hotels,data.nights);placeHotelMarkers(data.hotels);}catch(e){$('hotelstatus').innerHTML='<span class="danger">Live zoeken mislukt: '+escapeHtml(e.message)+'</span>'}}
 function renderHotels(hotels,nights){$('hotels').innerHTML=hotels.map((h,i)=>{const price=h.pricePerNight,total=h.totalPrice||((price||0)*nights);const offer=h.offers?.[0];const link=offer?.url||h.url;return `<div class="hotel"><img src="${escapeAttr(h.image)}" alt="" onerror="this.style.display='none'"><div><div class="row"><span class="pill">⭐ ${h.rating||'—'}</span><span class="pill">${h.stars||0} sterren</span>${h.discountPercent?`<span class="pill">-${h.discountPercent}%</span>`:''}</div><h3>${escapeHtml(h.name)}</h3><div class="muted">${escapeHtml(h.area||'')} ${h.distance?`· ${escapeHtml(h.distance)}`:''}</div><div class="price">${price?`${euro(price)} / nacht`:'Prijs onbekend'}${total?` · ${euro(total)} verblijf`:''}</div><div class="muted">${h.reviews?`${h.reviews.toLocaleString('nl-NL')} beoordelingen`:''}</div><div class="actions"><button class="secondary" onclick='selectHotel(${JSON.stringify({name:h.name,totalPrice:total,url:link,nights}).replace(/'/g,"&#39;")})'>Kies dit verblijf</button>${link?`<a class="secondary" href="${escapeAttr(link)}" target="_blank" rel="noopener">Bekijk deal</a>`:''}</div></div></div>`}).join('')}
 function placeHotelMarkers(hotels){if(!map)return;hotelMarkers.forEach(m=>map.removeLayer(m));hotelMarkers=[];hotels.filter(h=>h.lat&&h.lng).slice(0,24).forEach(h=>{const icon=L.divIcon({className:'',html:`<div class="hotel-marker">${h.pricePerNight?euro(h.pricePerNight):'€?'}</div>`,iconSize:[58,25],iconAnchor:[29,12]});hotelMarkers.push(L.marker([h.lat,h.lng],{icon}).addTo(map).bindPopup(`<b>${escapeHtml(h.name)}</b><br>${h.rating?`⭐ ${h.rating}`:''}<br>${h.pricePerNight?euro(h.pricePerNight)+' / nacht':''}`));});}
