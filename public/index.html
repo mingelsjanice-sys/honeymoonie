@@ -35,7 +35,26 @@ if(window.L){
 function renderMap(){if(!map)return;markers.forEach(m=>map.removeLayer(m));markers=[];hotelMarkers.forEach(m=>map.removeLayer(m));hotelMarkers=[];if(routeLine){map.removeLayer(routeLine);routeLine=null}stops.forEach((s,i)=>{const p=places[s];const icon=L.divIcon({className:'',html:`<div class="marker">${i+1}</div>`,iconSize:[29,29],iconAnchor:[14,14]});markers.push(L.marker([p.lat,p.lng],{icon}).addTo(map).bindPopup(`<b>${i+1}. ${p.label}</b><br>${p.nights} nachten`));});if(stops.length)map.fitBounds(L.latLngBounds(stops.map(s=>[places[s].lat,places[s].lng])),{padding:[35,35]});setTimeout(()=>map.invalidateSize(),150);}
 function renderStops(){const el=$('stops');el.innerHTML=stops.length?stops.map((s,i)=>`<div class="stop"><b>${i+1}. ${places[s].label}</b><span>${places[s].nights}n</span><button onclick="removeStop(${i})">×</button></div>`).join(''):'<div class="empty">Nog geen route. Klik op “Maak mijn honeymoon”.</div>';renderMap();updateRoute();}
 window.removeStop=i=>{stops.splice(i,1);renderStops();renderPlan()};
-async function updateRoute(){if(stops.length<2){$('routeStats').innerHTML='';$('routehint').textContent=stops.length?'Eén basis gekozen. Voeg nog een stop toe voor de rijroute.':'';return}const coords=stops.map(s=>`${places[s].lng},${places[s].lat}`).join(';');$('routeStats').innerHTML='<span class="pill">🚗 Route wordt berekend…</span>';try{const r=await fetch('/api/route?coords='+encodeURIComponent(coords));const d=await r.json();if(!r.ok)throw new Error(d.error);if(routeLine&&map)map.removeLayer(routeLine);routeLine=map?L.geoJSON(d.geometry,{style:{weight:5,dashArray:'9 8'}}).addTo(map);$('routeStats').innerHTML=`<span class="pill">🚗 ${Math.round(d.distanceKm)} km</span><span class="pill">⏱️ ${formatMinutes(d.durationMin)}</span>`;$('routehint').textContent='De route volgt de wegen; hotels worden alleen als suggestie op de kaart gezet.';if(map&&routeLine)map.fitBounds(routeLine.getBounds(),{padding:[40,40]});}catch(e){$('routeStats').innerHTML='<span class="pill">Routekaart beschikbaar, routeberekening tijdelijk niet beschikbaar.</span>';$('routehint').textContent=e.message}}
+const coords=stops.map(s=>`${places[s].lng},${places[s].lat}`).join(';');
+  $('routeStats').innerHTML='<span class="pill">🚗 Route wordt berekend…</span>';
+
+  try{
+    const r=await fetch('/api/route?coords='+encodeURIComponent(coords));
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error);
+
+    if(routeLine&&map)map.removeLayer(routeLine);
+    routeLine=map?L.geoJSON(d.geometry,{style:{weight:5,dashArray:'9 8'}}).addTo(map);
+
+    $('routeStats').innerHTML=`<span class="pill">🚗 ${Math.round(d.distanceKm)} km</span><span class="pill">⏱️ ${formatMinutes(d.durationMin)}</span>`;
+    $('routehint').textContent='De route volgt de wegen; hotels worden alleen als suggestie op de kaart gezet.';
+
+    if(map&&routeLine)map.fitBounds(routeLine.getBounds(),{padding:[40,40]});
+  }catch(e){
+    $('routeStats').innerHTML='<span class="pill">Routekaart beschikbaar, routeberekening tijdelijk niet beschikbaar.</span>';
+    $('routehint').textContent=e.message;
+  }
+
 function formatMinutes(m){m=Math.round(m);const h=Math.floor(m/60),min=m%60;return h?`${h}u ${min}m`:`${min} min`}
 function build(){const days=+$('days').value||14;const style=$('style').value;let route=style.includes('Strand')?['Toscane','Amalfi','Puglia','Rome']:style.includes('Wijn')?['Toscane','Siena','Puglia','Rome']:style.includes('Veel')?['Rome','Florence','Toscane','Amalfi','Puglia']:['Toscane','Amalfi','Puglia','Rome'];if(days<10)route=route.slice(0,3);if(days>=16&&route.length<5)route=['Rome','Toscane','Amalfi','Puglia','Rome'];const total=days;let remaining=total;const ns=route.map((r,i)=>{const n=i===route.length-1?remaining:Math.max(2,Math.round(remaining/(route.length-i)));remaining-=n;return n});route.forEach((r,i)=>places[r].nights=ns[i]);stops=route;renderStops();renderPlan();$('status').textContent=`Voorstel gemaakt voor ${days} dagen • ${route.length} bases • ${style}.`;updateBudget();}
 $('build').onclick=build;
