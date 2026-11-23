@@ -54,7 +54,7 @@ const coords=stops.map(s=>`${places[s].lng},${places[s].lat}`).join(';');
     $('routeStats').innerHTML='<span class="pill">Routekaart beschikbaar, routeberekening tijdelijk niet beschikbaar.</span>';
     $('routehint').textContent=e.message;
   }
-
+}
 function formatMinutes(m){m=Math.round(m);const h=Math.floor(m/60),min=m%60;return h?`${h}u ${min}m`:`${min} min`}
 function build(){const days=+$('days').value||14;const style=$('style').value;let route=style.includes('Strand')?['Toscane','Amalfi','Puglia','Rome']:style.includes('Wijn')?['Toscane','Siena','Puglia','Rome']:style.includes('Veel')?['Rome','Florence','Toscane','Amalfi','Puglia']:['Toscane','Amalfi','Puglia','Rome'];if(days<10)route=route.slice(0,3);if(days>=16&&route.length<5)route=['Rome','Toscane','Amalfi','Puglia','Rome'];const total=days;let remaining=total;const ns=route.map((r,i)=>{const n=i===route.length-1?remaining:Math.max(2,Math.round(remaining/(route.length-i)));remaining-=n;return n});route.forEach((r,i)=>places[r].nights=ns[i]);stops=route;renderStops();renderPlan();$('status').textContent=`Voorstel gemaakt voor ${days} dagen • ${route.length} bases • ${style}.`;updateBudget();}
 $('build').onclick=build;
